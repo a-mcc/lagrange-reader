@@ -92,6 +92,7 @@ The important boundary is simple: BookOrbit stays authoritative, while Lagrange 
 - **PDF and comic reading:** Readium-powered PDF and image readers with fullscreen controls, page navigation, Preview isolation, and CBZ/online CBR support.
 - **Audiobook playback:** compact and full players with seeking, chapter selection, previous/next chapter controls, playback speed, sleep timer, resume, responsive portrait/landscape layouts, session history, read-along support, and optional pausing/resuming when Android reports competing audio focus (enabled by default).
 - **Library discovery:** Home, libraries, series, authors, search, achievements, local books, filters, sorting, and series navigation.
+- **BookOrbit email delivery:** send ebooks from Book Detail to recipients configured on your server. Select multiple recipients, choose an email provider or template when available, or use each recipient's default template. Requires an online connection, server email setup, and permission to send email.
 - **Reliable offline downloads:** progress, cancellation, retry/update flows, cache validation, and safe local replacement.
 - **Personalized controls:** five app themes, reader themes, orientation lock, reduce motion, cellular download policy, cache management, and background-network controls.
 
@@ -151,7 +152,7 @@ Preview sessions are excluded. Sessions shorter than 10 seconds are discarded by
 
 Lagrange does not include behavioral telemetry, advertising tracking, an analytics SDK, or a remote crash-reporting service. It does not collect usage events or device identifiers for the Lagrange project.
 
-The app does send functional requests to the BookOrbit server that you configure. Depending on the features you use, this includes authentication, library and book metadata, cover and media requests, reading/listening progress, reading-status changes, personal ratings, Statistics requests, and server reading-history requests. These requests are required for the app to browse, synchronize, read, listen, and recover progress.
+The app does send functional requests to the BookOrbit server that you configure. Depending on the features you use, this includes authentication, library and book metadata, cover and media requests, reading/listening progress, reading-status changes, personal ratings, Statistics requests, server reading-history requests, and email delivery requests when you choose to send an ebook. These requests are required for the app to browse, synchronize, read, listen, and recover progress.
 
 Lagrange stores app data locally in its private Android sandbox, including session cookies, cached catalog data, downloaded files, reader state, queued progress, preferences, and exact local audiobook session history. Exact local audiobook session-history events are not uploaded by Lagrange; the server-history view only reads analytics records already stored by BookOrbit.
 
@@ -182,6 +183,7 @@ BookOrbit is the server and web platform; Lagrange is an independent Android cli
 | Reading and listening | Serves book files, reader data, progress APIs, and audiobook media. | Provides native EPUB, PDF, comic, and audiobook readers with resume, themes, navigation, and playback controls. |
 | Offline use | Remains the connected source of server content. | Downloads supported content and reopens it offline, including CBR/CB7 files via client-side RAR4/RAR5/7z extraction into a cached CBZ. |
 | Progress and status | Stores reading/listening progress and book statuses. | Queues progress offline, synchronizes it, and exposes the server status controls in the Android UI. |
+| Email delivery | Configures mail providers, recipients, templates, and delivery preferences; queues and sends emails. | Sends ebooks to configured recipients from Book Detail, with provider and template selection and recipient defaults. Setup and delivery history remain in BookOrbit. |
 | Ratings and metadata sources | Owns book metadata, provider IDs, and per-user book data. | Displays and updates supported per-user ratings and opens centralized links for known metadata providers. |
 | Audiobook sessions | Stores server reading sessions and reading attempts as analytics/history records. | Shows server history after local history; local exact-position audiobook sessions remain device-only and seekable. |
 | Statistics | Provides summary, daily reading, heatmap, source, peak-hour, timeline, goal, completion, pace, and related statistics APIs. | Currently consumes the summary and daily-reading endpoints in the lazy-loaded Statistics screen. |
