@@ -31,8 +31,9 @@ class BookOrbitEmailApiTest {
             assertNull(body)
             when (path) {
                 "/api/v1/email/recipients" -> """[{"id":7,"name":"Kindle","email":"reader@example.com","isDefault":true}]"""
-                "/api/v1/email/providers" -> """[{"id":3,"name":"Personal"},{"id":9,"name":"Shared"}]"""
-                "/api/v1/email/preferences" -> """{"defaultProviderId":9}"""
+                "/api/v1/email/providers" -> """[{"id":3,"name":"Personal","isDefault":true},{"id":9,"name":"Shared"}]"""
+                "/api/v1/email/templates" -> """[{"id":2,"name":"Standard","isDefault":true},{"id":5,"name":"Custom"}]"""
+                "/api/v1/email/preferences" -> """{"defaultProviderId":9,"defaultTemplateId":5}"""
                 else -> error("Unexpected path: $path")
             }
         }
@@ -40,7 +41,95 @@ class BookOrbitEmailApiTest {
         assertTrue(options.isAvailable)
         assertEquals(BookEmailRecipient(7, "Kindle", "reader@example.com", true), options.recipients.single())
         assertEquals(9L, options.defaultProviderId)
-        assertEquals(3, paths.size)
+        assertEquals(listOf(BookEmailProvider(3, "Personal", true), BookEmailProvider(9, "Shared")), options.providers)
+        assertEquals(5L, options.defaultTemplateId)
+        assertEquals(listOf(BookEmailTemplate(2, "Standard", true), BookEmailTemplate(5, "Custom")), options.templates)
+        assertEquals(4, paths.size)
+    }
+
+    @Test
+    fun singleProviderRemainsAvailableWithoutAnAccessibleSavedDefault() = runTest {
+        for (defaultProviderId in listOf("null", "99")) {
+            val api = BookOrbitEmailApi { path, _, _ ->
+                when (path) {
+                    "/api/v1/email/recipients" -> """[{"id":7,"email":"reader@example.com"}]"""
+                    "/api/v1/email/providers" -> """[{"id":3,"name":"Personal"}]"""
+                    "/api/v1/email/templates" -> "[]"
+                    "/api/v1/email/preferences" -> """{"defaultProviderId":$defaultProviderId}"""
+                    else -> error("Unexpected path: $path")
+                }
+            }
+            val options = api.loadOptions()
+            assertTrue(options.isAvailable)
+            assertEquals(BookEmailProvider(3, "Personal"), options.providers.single())
+            assertNull(options.defaultProviderId)
+        }
+    }
+
+    @Test
+    fun providerAndTemplateFlagsSupplyDefaultsWhenPreferencesAreMissingOrInaccessible() = runTest {
+        for (savedId in listOf("null", "99")) {
+            val api = BookOrbitEmailApi { path, _, _ ->
+                when (path) {
+                    "/api/v1/email/recipients" -> """[{"id":7,"email":"reader@example.com"}]"""
+                    "/api/v1/email/providers" -> """[{"id":3,"name":"Alpha"},{"id":9,"name":"Proton","isDefault":true}]"""
+                    "/api/v1/email/templates" -> """[{"id":2,"name":"Alpha"},{"id":5,"name":"Standard","isDefault":true}]"""
+                    "/api/v1/email/preferences" -> """{"defaultProviderId":$savedId,"defaultTemplateId":$savedId}"""
+                    else -> error("Unexpected path: $path")
+                }
+            }
+            val options = api.loadOptions()
+            assertEquals(9L, options.defaultProviderId)
+            assertTrue(options.providers.last().isDefault)
+            assertEquals(5L, options.defaultTemplateId)
+            assertTrue(options.templates.last().isDefault)
+        }
+    }
+
+    @Test
+    fun recipientDefaultsOmitTemplateOverrideForZeroOneOrMultipleTemplates() = runTest {
+        val templateLists = listOf(
+            "[]",
+            """[{"id":2,"name":"Standard","isDefault":true}]""",
+            """[{"id":2,"name":"Standard","isDefault":true},{"id":5,"name":"Custom"}]"""
+        )
+        for (templates in templateLists) {
+            var submitted: JSONObject? = null
+            val api = BookOrbitEmailApi { path, _, body ->
+                when (path) {
+                    "/api/v1/email/recipients" -> """[{"id":7,"email":"reader@example.com"}]"""
+                    "/api/v1/email/providers" -> """[{"id":3,"name":"Personal","isDefault":true}]"""
+                    "/api/v1/email/templates" -> templates
+                    "/api/v1/email/preferences" -> """{"defaultTemplateId":2}"""
+                    "/api/v1/email/send" -> {
+                        submitted = JSONObject(readBody(body!!))
+                        """{"queued":1}"""
+                    }
+                    else -> error("Unexpected path: $path")
+                }
+            }
+            val options = api.loadOptions()
+            assertTrue(options.isAvailable)
+            assertEquals(1, api.send(book, setOf(7), options.providers.single().id, null))
+            val payload = requireNotNull(submitted)
+            assertEquals(3L, payload.getLong("providerId"))
+            assertFalse(payload.has("templateId"))
+            assertFalse(payload.has("fileId"))
+            assertEquals(3, payload.length())
+        }
+    }
+
+    @Test
+    fun invalidTemplateIdsAreRejectedBeforeSending() = runTest {
+        val api = BookOrbitEmailApi { _, _, _ -> error("Must not send") }
+        for (templateId in listOf(0L, -1L)) {
+            try {
+                api.send(book, setOf(7), 3, templateId)
+                fail("Expected template rejection")
+            } catch (error: BookEmailException) {
+                assertEquals(BookEmailFailure.INVALID_SELECTION, error.reason)
+            }
+        }
     }
 
     @Test
@@ -50,7 +139,7 @@ class BookOrbitEmailApiTest {
                 when (path) {
                     "/api/v1/email/recipients" -> if (missingRecipients) "[]" else """[{"id":7,"email":"reader@example.com"}]"""
                     "/api/v1/email/providers" -> "[]"
-                    else -> error("Should not request preferences without email setup")
+                    else -> error("Unexpected email setup request")
                 }
             }
             assertFalse(api.loadOptions().isAvailable)
@@ -81,7 +170,7 @@ class BookOrbitEmailApiTest {
     }
 
     @Test
-    fun queuesSelectedEbookFileForSelectedRecipients() = runTest {
+    fun queuesSelectedProviderAndTemplateWhileKeepingServerFileDefaults() = runTest {
         var submitted: JSONObject? = null
         val api = BookOrbitEmailApi { path, method, body ->
             assertEquals("/api/v1/email/send", path)
@@ -90,13 +179,14 @@ class BookOrbitEmailApiTest {
             submitted = JSONObject(readBody(body))
             """{"queued":2}"""
         }
-        assertEquals(2, api.send(book.copy(fileId = "99"), setOf(7, 8), 3))
-        val payload = submitted!!
+        assertEquals(2, api.send(book.copy(fileId = "99"), setOf(7, 8), 9, 5))
+        val payload = requireNotNull(submitted)
         assertEquals(42L, payload.getJSONArray("bookIds").getLong(0))
-        assertEquals(99L, payload.getLong("fileId"))
         assertEquals(listOf(7L, 8L), (0..1).map { payload.getJSONArray("recipientIds").getLong(it) })
-        assertEquals(3L, payload.getLong("providerId"))
-        assertFalse(payload.has("templateId")) // Server retains recipient/template defaults.
+        assertFalse(payload.has("fileId"))
+        assertEquals(9L, payload.getLong("providerId"))
+        assertEquals(5L, payload.getLong("templateId"))
+        assertEquals(4, payload.length()) // BookOrbit still resolves file preferences.
     }
 
     @Test
@@ -125,6 +215,12 @@ class BookOrbitEmailApiTest {
             fail("Expected recipient rejection")
         } catch (_: IllegalArgumentException) {
             // Sending requires at least one recipient.
+        }
+        try {
+            api.send(book, setOf(7), 0)
+            fail("Expected provider rejection")
+        } catch (error: BookEmailException) {
+            assertEquals(BookEmailFailure.INVALID_SELECTION, error.reason)
         }
         assertTrue(canEmailBook(book.copy(mediaKind = MediaKind.PDF)))
         assertTrue(canEmailBook(book.copy(localPath = "/downloads/book.epub")))

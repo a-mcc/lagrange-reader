@@ -7,7 +7,9 @@ data class BookEmailRecipient(
     val isDefault: Boolean = false
 )
 
-data class BookEmailProvider(val id: Long, val name: String)
+data class BookEmailProvider(val id: Long, val name: String, val isDefault: Boolean = false)
+
+data class BookEmailTemplate(val id: Long, val name: String, val isDefault: Boolean = false)
 
 enum class BookEmailFailure {
     UNAVAILABLE,
@@ -23,7 +25,9 @@ class BookEmailException(val reason: BookEmailFailure) : IllegalArgumentExceptio
 data class BookEmailOptions(
     val recipients: List<BookEmailRecipient> = emptyList(),
     val providers: List<BookEmailProvider> = emptyList(),
-    val defaultProviderId: Long? = null
+    val defaultProviderId: Long? = null,
+    val templates: List<BookEmailTemplate> = emptyList(),
+    val defaultTemplateId: Long? = null
 ) {
     val isAvailable: Boolean get() = recipients.isNotEmpty() && providers.isNotEmpty()
 }

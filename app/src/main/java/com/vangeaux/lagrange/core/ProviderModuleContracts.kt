@@ -70,7 +70,7 @@ interface AuthorModule {
 
 interface BookDetailModule {
     suspend fun loadBookEmailOptions(): BookEmailOptions = BookEmailOptions()
-    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int {
+    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long, templateId: Long?): Int {
         throw BookEmailException(BookEmailFailure.UNAVAILABLE)
     }
     suspend fun loadBookDetail(book: BookSummary): BookDetailInfo?

@@ -1032,7 +1032,7 @@ internal fun NativeLibraryBrowserScreen(
     coverLoader: suspend (BookSummary) -> ByteArray?,
     bookDetailLoader: suspend (BookSummary) -> BookDetailInfo?,
     bookEmailOptionsLoader: suspend () -> BookEmailOptions = { BookEmailOptions() },
-    onSendBookEmail: suspend (BookSummary, Set<Long>, Long) -> Int = { _, _, _ -> 0 },
+    onSendBookEmail: suspend (BookSummary, Set<Long>, Long, Long?) -> Int = { _, _, _, _ -> 0 },
     epubImageLibrarySourceLoader: suspend (BookSummary, Boolean) -> EpubImageLibrarySourceResult =
         { _, _ -> EpubImageLibrarySourceResult.Unavailable("The selected EPUB is not available locally.") },
     onDownloadForEpubImageLibrary: (BookSummary, (BookSummary) -> Unit) -> Unit = { _, _ -> },
@@ -7441,7 +7441,7 @@ private fun BookDetails(
     coverLoader: suspend (BookSummary) -> ByteArray?,
     detailLoader: suspend (BookSummary) -> BookDetailInfo?,
     bookEmailOptionsLoader: suspend () -> BookEmailOptions,
-    onSendBookEmail: suspend (BookSummary, Set<Long>, Long) -> Int,
+    onSendBookEmail: suspend (BookSummary, Set<Long>, Long, Long?) -> Int,
     epubImageLibrarySourceLoader: suspend (BookSummary, Boolean) -> EpubImageLibrarySourceResult,
     onDownloadForEpubImageLibrary: (BookSummary, (BookSummary) -> Unit) -> Unit,
     appPreferences: AppPreferences,

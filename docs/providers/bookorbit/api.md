@@ -72,12 +72,13 @@ Discovery uses authenticated requests:
 ```text
 GET /api/v1/email/recipients
 GET /api/v1/email/providers
+GET /api/v1/email/templates
 GET /api/v1/email/preferences
 ```
 
-Recipients and providers are top-level arrays. The client retains recipient `id`, `name`, `email`, and `isDefault`, provider `id` and `name`, and preferences `defaultProviderId`. It does not persist these responses or SMTP credentials. Discovery responses `403`, `404`, `405`, and `501` disable the action for accounts without permission or older servers. Other discovery failures hide the action until the detail is refreshed or reopened; authentication expiration uses the existing sign-in recovery path.
+Recipients, providers, and templates are top-level arrays. The client retains recipient `id`, `name`, `email`, and `isDefault`, provider `id`, `name`, and `isDefault`, template `id`, `name`, and `isDefault`, and preferences `defaultProviderId` and `defaultTemplateId`. It does not persist these responses or SMTP credentials. Discovery responses `403`, `404`, `405`, and `501` disable the action for accounts without permission or older servers. Other discovery failures hide the action until the detail is refreshed or reopened; authentication expiration uses the existing sign-in recovery path.
 
-The dialog permits multiple saved recipients and an accessible provider. Default recipients are initially selected, and the saved default provider is selected when available, otherwise the first accessible provider. The selected Available File is submitted explicitly:
+The `Send via Email` modal shows the book title, recipient names/addresses, a `Default` badge, and Cancel/Send controls. Default recipients are initially selected; multiple recipients can be selected. Recipients list defaults first, then other recipients alphabetically by name. Provider and template dropdowns list named choices alphabetically, including defaults. The template dropdown starts with a separate `Use recipient defaults` option. Sorting ignores case. With multiple accessible providers, an Email provider dropdown permits choosing one; the saved preference is selected initially when accessible, otherwise the provider marked as default, then the first provider. With one provider, the selector is hidden and that provider is used automatically. The template dropdown is shown only when multiple named templates are available. With zero or one template, it is hidden and the client omits `templateId` so BookOrbit resolves the default. It initially selects `Use recipient defaults`, which omits `templateId` so BookOrbit resolves each recipient’s default before the account and server fallbacks. Selecting a named template sends its ID as an explicit override. The saved accessible template preference, otherwise the template marked as default, determines which named choice carries the Default badge. Provider and template dropdowns show the actual selected name with a `Default` badge when it is the configured default, and the menu also badges the default option; choosing another option does not move the badge. With no templates returned, omit the template override. There is no Options section or file selector. The client submits the book, recipient, selected provider, and selected template IDs:
 
 ```text
 POST /api/v1/email/send
@@ -86,13 +87,13 @@ POST /api/v1/email/send
 ```json
 {
   "bookIds": [42],
-  "fileId": 56,
   "recipientIds": [7, 8],
-  "providerId": 3
+  "providerId": 3,
+  "templateId": 5
 }
 ```
 
-BookOrbit requires `email.send` permission and normally returns `202 Accepted` with `{"queued":2}`. The client reports queue acceptance, not completed delivery. Recipient device settings, delivery policy, and template defaults remain server-managed; the explicit `fileId` overrides automatic preferred-format selection. Send is disabled during submission, errors remain in the dialog, and a failed request is not replayed by an app-level offline or retry queue. Delivery history is available in BookOrbit.
+BookOrbit requires `email.send` permission and normally returns `202 Accepted` with `{"queued":2}`. The client reports queue acceptance, not completed delivery. The client sends the selected provider explicitly. The example above shows a named template override; with `Use recipient defaults`, `templateId` is absent. An explicit template overrides recipient template preferences. BookOrbit resolves recipient format preferences and device/delivery settings. Invalid provider, template, or recipient setup leaves the modal open with an error directing the user to BookOrbit’s email settings. Send is disabled during submission, errors remain in the dialog, and a failed request is not replayed by an app-level offline or retry queue. Delivery history is available in BookOrbit.
 
 Contract inspected against BookOrbit source revision `3e993af16b8ee0a3bee5a1b3a602113745de4457`: [send controller](https://github.com/BookOrbit/bookorbit/blob/3e993af16b8ee0a3bee5a1b3a602113745de4457/server/src/modules/email/email-send.controller.ts), [send DTO](https://github.com/BookOrbit/bookorbit/blob/3e993af16b8ee0a3bee5a1b3a602113745de4457/server/src/modules/email/dto/send-book.dto.ts), and [provider resolution](https://github.com/BookOrbit/bookorbit/blob/3e993af16b8ee0a3bee5a1b3a602113745de4457/server/src/modules/email/email-provider-resolver.ts). Live-server email delivery and connected dialog behavior require manual validation.
 

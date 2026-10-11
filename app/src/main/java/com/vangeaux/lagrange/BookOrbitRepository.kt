@@ -362,7 +362,7 @@ interface BookOrbitDataSource {
     suspend fun loadBookCover(book: BookSummary): ByteArray? = null
     suspend fun loadCatalogImage(url: String): ByteArray? = null
     suspend fun loadBookEmailOptions(): BookEmailOptions = BookEmailOptions()
-    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int {
+    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long, templateId: Long?): Int {
         throw BookEmailException(BookEmailFailure.UNAVAILABLE)
     }
     suspend fun loadBookDetail(book: BookSummary): BookDetailInfo? = null
@@ -1711,8 +1711,8 @@ class BookOrbitRepository(private val context: Context) : BookOrbitDataSource, P
 
     override suspend fun loadBookEmailOptions(): BookEmailOptions = emailApi.loadOptions()
 
-    override suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int =
-        emailApi.send(book, recipientIds, providerId)
+    override suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long, templateId: Long?): Int =
+        emailApi.send(book, recipientIds, providerId, templateId)
 
     override suspend fun loadBookDetail(book: BookSummary): BookDetailInfo = withContext(Dispatchers.IO) {
         val serverUrl = getServerUrl().orEmpty()

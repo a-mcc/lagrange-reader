@@ -263,10 +263,10 @@ class AppCoordinator internal constructor(
         bookDetailModule()?.loadBookEmailOptions() ?: repository.loadBookEmailOptions()
     }
 
-    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int {
+    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long, templateId: Long?): Int {
         return try {
-            bookDetailModule()?.sendBookEmail(book, recipientIds, providerId)
-                ?: repository.sendBookEmail(book, recipientIds, providerId)
+            bookDetailModule()?.sendBookEmail(book, recipientIds, providerId, templateId)
+                ?: repository.sendBookEmail(book, recipientIds, providerId, templateId)
         } catch (_: AuthenticationRequiredException) {
             recoverExpiredSession()
             throw BookEmailException(BookEmailFailure.SIGN_IN_REQUIRED)
