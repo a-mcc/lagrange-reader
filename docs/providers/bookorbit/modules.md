@@ -18,7 +18,7 @@ Implemented composition includes:
 - cached Home books;
 - Smart Scopes and scoped Series catalogs/details;
 - authors and author books;
-- book details, cached details, and user ratings;
+- book details, cached details, user ratings, and email ebook delivery;
 - book covers and catalog images;
 - reader progress, reader state, EPUB image-library preparation, provider-backed reader restoration, and EPUB positions;
 - downloads, multipart audiobook download files, and local-copy deletion;
@@ -57,7 +57,7 @@ BookOrbit exposes `AchievementModule` and shows the Achievements destination whe
 BookOrbit also exposes `StatisticsModule` and shows the Statistics destination when that provider is active.
 BookOrbit exposes `SmartScopeModule` for Smart Scope loading and scoped Series navigation.
 BookOrbit exposes `AuthorModule` for author catalogs and author-book navigation.
-BookOrbit exposes `BookDetailModule` for detail loading, cached detail loading, and user-rating mutations.
+BookOrbit exposes `BookDetailModule` for detail loading, cached detail loading, user-rating mutations, email setup discovery, and sending an ebook to saved recipients. `BookOrbitEmailApi` owns email endpoints and mapping under `provider/bookorbit/`, using the repository's authenticated transport. Core owns the recipient dialog and queued/error presentation. Other providers use the contract's unavailable default.
 BookOrbit exposes `BookCoverModule` for book covers and catalog images.
 BookOrbit exposes `BookCatalogModule` and `HomeShelfModule` for library catalogs, recent sections, search, and cached Home books.
 BookOrbit exposes `LibraryModule` for library discovery.

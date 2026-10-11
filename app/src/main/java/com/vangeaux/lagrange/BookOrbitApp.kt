@@ -345,6 +345,8 @@ private fun BookOrbitDestination(
             recentBooksPageLoader = coordinator::loadRecentBooksPage,
             coverLoader = coordinator::loadBookCover,
             bookDetailLoader = coordinator::loadBookDetail,
+            bookEmailOptionsLoader = coordinator::loadBookEmailOptions,
+            onSendBookEmail = coordinator::sendBookEmail,
             epubImageLibrarySourceLoader = coordinator::prepareEpubImageLibrarySource,
             sessionHistoryLoader = coordinator::loadAudiobookSessionHistory,
             onSessionHistoryEntryClick = coordinator::openAudiobookSessionHistory,

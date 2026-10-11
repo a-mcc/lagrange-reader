@@ -259,6 +259,20 @@ class AppCoordinator internal constructor(
         bookCatalogModule()?.loadRecentBooksPage(libraryId, section, page) ?: repository.loadRecentBooksPage(libraryId, section, page)
     }
 
+    suspend fun loadBookEmailOptions(): BookEmailOptions = loadWithSessionRecovery(BookEmailOptions()) {
+        bookDetailModule()?.loadBookEmailOptions() ?: repository.loadBookEmailOptions()
+    }
+
+    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int {
+        return try {
+            bookDetailModule()?.sendBookEmail(book, recipientIds, providerId)
+                ?: repository.sendBookEmail(book, recipientIds, providerId)
+        } catch (_: AuthenticationRequiredException) {
+            recoverExpiredSession()
+            throw BookEmailException(BookEmailFailure.SIGN_IN_REQUIRED)
+        }
+    }
+
     suspend fun loadBookDetail(book: BookSummary): BookDetailInfo? = loadWithSessionRecovery(null) {
         bookDetailModule()?.loadBookDetail(book) ?: repository.loadBookDetail(book)
     }

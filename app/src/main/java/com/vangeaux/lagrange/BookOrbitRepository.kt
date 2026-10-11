@@ -67,6 +67,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToLong
 import javax.net.ssl.SSLException
+import com.vangeaux.lagrange.provider.bookorbit.BookOrbitEmailApi
 import com.vangeaux.lagrange.provider.bookorbit.BookOrbitModuleSet
 
 private val Context.dataStore by preferencesDataStore(name = "lagrange_prefs")
@@ -360,6 +361,10 @@ interface BookOrbitDataSource {
     suspend fun searchBooks(query: String): List<BookSummary> = emptyList()
     suspend fun loadBookCover(book: BookSummary): ByteArray? = null
     suspend fun loadCatalogImage(url: String): ByteArray? = null
+    suspend fun loadBookEmailOptions(): BookEmailOptions = BookEmailOptions()
+    suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int {
+        throw BookEmailException(BookEmailFailure.UNAVAILABLE)
+    }
     suspend fun loadBookDetail(book: BookSummary): BookDetailInfo? = null
     suspend fun loadCachedBookDetail(book: BookSummary): BookDetailInfo? = null
     suspend fun loadReaderProgress(
@@ -483,6 +488,7 @@ class BookOrbitRepository(private val context: Context) : BookOrbitDataSource, P
     private val epubReaderPositionStore = EpubReaderPositionStore(context)
     private val lastSyncedProgressStore = LastSyncedProgressStore(context)
     private val appStorageManager = AppStorageManager(context)
+    private val emailApi = BookOrbitEmailApi(::request)
     private val client = OkHttpClient.Builder()
         .cookieJar(WebViewCookieJar())
         .followRedirects(true)
@@ -1702,6 +1708,11 @@ class BookOrbitRepository(private val context: Context) : BookOrbitDataSource, P
             }
         }
     }
+
+    override suspend fun loadBookEmailOptions(): BookEmailOptions = emailApi.loadOptions()
+
+    override suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long): Int =
+        emailApi.send(book, recipientIds, providerId)
 
     override suspend fun loadBookDetail(book: BookSummary): BookDetailInfo = withContext(Dispatchers.IO) {
         val serverUrl = getServerUrl().orEmpty()

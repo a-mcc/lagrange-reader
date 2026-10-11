@@ -49,6 +49,8 @@ class BookOrbitModuleSet(private val source: BookOrbitDataSource) {
             override suspend fun loadAuthorBooks(authorId: String, page: Int) = source.loadAuthorBooks(authorId, page)
         },
         bookDetail = object : BookDetailModule {
+            override suspend fun loadBookEmailOptions() = source.loadBookEmailOptions()
+            override suspend fun sendBookEmail(book: BookSummary, recipientIds: Set<Long>, providerId: Long) = source.sendBookEmail(book, recipientIds, providerId)
             override suspend fun loadBookDetail(book: BookSummary) = source.loadBookDetail(book)
             override suspend fun loadCachedBookDetail(book: BookSummary) = source.loadCachedBookDetail(book)
             override suspend fun setBookUserRating(book: BookSummary, rating: Int?) = source.setBookUserRating(book, rating)

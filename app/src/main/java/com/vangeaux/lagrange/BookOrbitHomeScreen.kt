@@ -70,6 +70,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -1030,6 +1031,8 @@ internal fun NativeLibraryBrowserScreen(
     recentBooksPageLoader: suspend (String, HomeSection, Int) -> LibraryBooksPage = { _, _, _ -> LibraryBooksPage() },
     coverLoader: suspend (BookSummary) -> ByteArray?,
     bookDetailLoader: suspend (BookSummary) -> BookDetailInfo?,
+    bookEmailOptionsLoader: suspend () -> BookEmailOptions = { BookEmailOptions() },
+    onSendBookEmail: suspend (BookSummary, Set<Long>, Long) -> Int = { _, _, _ -> 0 },
     epubImageLibrarySourceLoader: suspend (BookSummary, Boolean) -> EpubImageLibrarySourceResult =
         { _, _ -> EpubImageLibrarySourceResult.Unavailable("The selected EPUB is not available locally.") },
     onDownloadForEpubImageLibrary: (BookSummary, (BookSummary) -> Unit) -> Unit = { _, _ -> },
@@ -1909,6 +1912,8 @@ internal fun NativeLibraryBrowserScreen(
                     modifier = Modifier.padding(padding),
                     coverLoader = coverLoader,
                     detailLoader = bookDetailLoader,
+                    bookEmailOptionsLoader = bookEmailOptionsLoader,
+                    onSendBookEmail = onSendBookEmail,
                     epubImageLibrarySourceLoader = epubImageLibrarySourceLoader,
                     onDownloadForEpubImageLibrary = onDownloadForEpubImageLibrary,
                     appPreferences = appPreferences,
@@ -7435,6 +7440,8 @@ private fun BookDetails(
     modifier: Modifier,
     coverLoader: suspend (BookSummary) -> ByteArray?,
     detailLoader: suspend (BookSummary) -> BookDetailInfo?,
+    bookEmailOptionsLoader: suspend () -> BookEmailOptions,
+    onSendBookEmail: suspend (BookSummary, Set<Long>, Long) -> Int,
     epubImageLibrarySourceLoader: suspend (BookSummary, Boolean) -> EpubImageLibrarySourceResult,
     onDownloadForEpubImageLibrary: (BookSummary, (BookSummary) -> Unit) -> Unit,
     appPreferences: AppPreferences,
@@ -7900,6 +7907,13 @@ private fun BookDetails(
             }
         }
         item {
+            val emailAction = rememberBookEmailAction(
+                book = displayBook,
+                serverUrl = state.serverUrl,
+                offline = state.isOfflineSnapshot,
+                reloadKey = reloadKey,
+                optionsLoader = bookEmailOptionsLoader
+            )
             val actionState = bookDetailActionState(
                 isDownloaded = selectedGroupProgress?.state == AvailableFileGroupDownloadState.COMPLETE ||
                     (selectedGroupProgress == null && displayBook.isDownloaded),
@@ -7925,6 +7939,8 @@ private fun BookDetails(
             val readWidth = actionWidth(primaryActionLabel, 72f)
             val previewWidth = actionWidth("Preview", 84f)
             val markWidth = actionWidth(statusActionLabel, 100f)
+            val emailLabel = "Email"
+            val emailWidth = actionWidth(emailLabel, 72f)
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -7945,15 +7961,24 @@ private fun BookDetails(
                         hasSessionHistory = showSessionHistoryButton,
                         sessionHistoryWidth = 32f
                     )
+                    // Keep Mark as and Email together. Narrow screens can scroll the actions.
+                    val showInlineStatus = emailAction.isAvailable || layout.showInlineStatusAction
+                    val showInlineTransfer = emailAction.isAvailable || layout.showInlineTransferAction
+                    val showMore = if (emailAction.isAvailable) actionState.hasFixedOverflow else layout.showMore
+                    val actionScrollState = rememberScrollState()
                     val transferOverflowLabel = actionState.overflowTransferLabel ?: actionState.inlineTransfer
                         ?.contentDescription
-                        ?.takeIf { !layout.showInlineTransferAction }
+                        ?.takeIf { !showInlineTransfer }
                     Row(
                         modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .then(
+                                    if (emailAction.isAvailable) Modifier.horizontalScroll(actionScrollState) else Modifier
+                                ),
                             horizontalArrangement = Arrangement.spacedBy(2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -7991,7 +8016,7 @@ private fun BookDetails(
                             onClick = { onPreview(displayBook) }
                             )
                             actionState.inlineTransfer
-                                ?.takeIf { layout.showInlineTransferAction }
+                                ?.takeIf { showInlineTransfer }
                                 ?.let { transfer ->
                                 DetailActionTile(
                                 label = transfer.contentDescription,
@@ -8013,7 +8038,7 @@ private fun BookDetails(
                                 }
                                 )
                             }
-                            if (layout.showInlineStatusAction) {
+                            if (showInlineStatus) {
                                 Box {
                                     DetailActionTile(
                                     label = statusActionLabel,
@@ -8039,8 +8064,21 @@ private fun BookDetails(
                                     )
                                 }
                             }
+                            if (emailAction.isAvailable) {
+                                DetailActionTile(
+                                    label = emailLabel,
+                                    icon = Icons.Default.Email,
+                                    showLabel = true,
+                                    modifier = Modifier
+                                        .width(emailWidth.dp)
+                                        .height(46.dp)
+                                        .testTag("book-detail-send-email"),
+                                    applyDefaultSize = false,
+                                    onClick = emailAction::openPicker
+                                )
+                            }
                         }
-                        if (layout.showMore) {
+                        if (showMore) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Box {
                                 DetailActionTile(
@@ -8083,7 +8121,7 @@ private fun BookDetails(
                                             }
                                         )
                                     }
-                                    if (!layout.showInlineStatusAction) {
+                                    if (!showInlineStatus) {
                                         DropdownMenuItem(
                                             text = { Text(statusActionLabel) },
                                             leadingIcon = {
@@ -8097,7 +8135,7 @@ private fun BookDetails(
                                         )
                                     }
                                 }
-                                if (!layout.showInlineStatusAction) {
+                                if (!showInlineStatus) {
                                     BookDetailReadingStatusMenu(
                                         expanded = showStatusMenu,
                                         currentStatus = displayBook.readStatus,
@@ -8113,6 +8151,11 @@ private fun BookDetails(
                         }
                     }
                 }
+                BookEmailFeedback(
+                    book = displayBook,
+                    state = emailAction,
+                    onSend = onSendBookEmail
+                )
             }
         }
 

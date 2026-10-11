@@ -63,6 +63,39 @@ The callback request contains `code`, `codeVerifier`, `redirectUri`, `nonce`, an
 
 The explicit client requests `offline_access`, generates PKCE S256 and nonce values, validates the exact server HTTPS callback `${APP_URL}/oauth2-callback` and server-issued state, then posts the callback fields above. Native AppAuth is separate and requires the deployed server's exact native redirect configuration and provider registration.
 
+## Email ebook delivery
+
+Book Detail exposes `Email` beside `Mark as…` in the action row for the selected server-backed EPUB/KEPUB or PDF file when online and when the current account has both saved recipients and accessible email providers. Local-only imports, missing files, audiobooks, comics, unsupported media, and offline snapshots have no email action. Setup remains in BookOrbit's email settings.
+
+Discovery uses authenticated requests:
+
+```text
+GET /api/v1/email/recipients
+GET /api/v1/email/providers
+GET /api/v1/email/preferences
+```
+
+Recipients and providers are top-level arrays. The client retains recipient `id`, `name`, `email`, and `isDefault`, provider `id` and `name`, and preferences `defaultProviderId`. It does not persist these responses or SMTP credentials. Discovery responses `403`, `404`, `405`, and `501` disable the action for accounts without permission or older servers. Other discovery failures hide the action until the detail is refreshed or reopened; authentication expiration uses the existing sign-in recovery path.
+
+The dialog permits multiple saved recipients and an accessible provider. Default recipients are initially selected, and the saved default provider is selected when available, otherwise the first accessible provider. The selected Available File is submitted explicitly:
+
+```text
+POST /api/v1/email/send
+```
+
+```json
+{
+  "bookIds": [42],
+  "fileId": 56,
+  "recipientIds": [7, 8],
+  "providerId": 3
+}
+```
+
+BookOrbit requires `email.send` permission and normally returns `202 Accepted` with `{"queued":2}`. The client reports queue acceptance, not completed delivery. Recipient device settings, delivery policy, and template defaults remain server-managed; the explicit `fileId` overrides automatic preferred-format selection. Send is disabled during submission, errors remain in the dialog, and a failed request is not replayed by an app-level offline or retry queue. Delivery history is available in BookOrbit.
+
+Contract inspected against BookOrbit source revision `3e993af16b8ee0a3bee5a1b3a602113745de4457`: [send controller](https://github.com/BookOrbit/bookorbit/blob/3e993af16b8ee0a3bee5a1b3a602113745de4457/server/src/modules/email/email-send.controller.ts), [send DTO](https://github.com/BookOrbit/bookorbit/blob/3e993af16b8ee0a3bee5a1b3a602113745de4457/server/src/modules/email/dto/send-book.dto.ts), and [provider resolution](https://github.com/BookOrbit/bookorbit/blob/3e993af16b8ee0a3bee5a1b3a602113745de4457/server/src/modules/email/email-provider-resolver.ts). Live-server email delivery and connected dialog behavior require manual validation.
+
 ## Libraries
 
 ### List libraries
